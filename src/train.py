@@ -569,10 +569,13 @@ if __name__ == "__main__":
 
     if config["use_wandb"]:
         wandb.login()
-        wandb.init(
-            project=config["project_name"],
-            settings=wandb.Settings(start_method="fork"),
-        )
+        wandb_init_kwargs = {
+            "project": config["project_name"],
+            "settings": wandb.Settings(start_method="fork"),
+        }
+        if config.get("wandb_entity"):
+            wandb_init_kwargs["entity"] = config["wandb_entity"]
+        wandb.init(**wandb_init_kwargs)
         wandb.save(args.config, policy="now")  # save the config file
         wandb.run.name = config["run_name"]
         # update the wandb args with the training configurations

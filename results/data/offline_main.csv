@@ -1,0 +1,7 @@
+method_id,method,configuration,k,sigreg_weight,dynamics_supervision,checkpoint_rule,epoch,action_loss,waypoint_cos,orientation_cos,lfp_loss,status,include_in_plot
+vint_baseline,ViNT baseline,ViNT direct policy,,,false,action-best,3,0.406023,0.961176,0.881979,,completed_paper_test,true
+dvn_k3_w012,DVN + SIGReg,"K=3, w=0.12",3,0.12,true,action-best/final,14,0.391858,0.963668,0.896781,0.045394,completed_paper_test
+dvn_k1_w012,DVN + SIGReg,"K=1, w=0.12",1,0.12,true,action-best,5,0.431797,0.961802,0.883591,0.440871,completed_paper_test
+dvn_k5_w012,DVN + SIGReg,"K=5, w=0.12",5,0.12,true,action-best,2,0.468454,0.956012,0.857612,0.390639,completed_paper_test
+dvn_k3_noreg,DVN w/o SIGReg,"K=3, w=0",3,0.0,true,action-best,3,0.474616,0.955489,0.858354,0.566767,completed_paper_test
+dvn_k3_w012_wolossdyn,DVN w/o latent dynamics,"K=3, w=0.12, dynamics loss weight=0",3,0.12,false,action-best,5,0.420498,0.959449,0.876616,0.478655

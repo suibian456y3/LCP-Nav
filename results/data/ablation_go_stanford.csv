@@ -1,0 +1,13 @@
+experiment,setting,action_best_epoch,action_loss,waypoint_cos,orientation_cos,lfp_loss,final_action_loss,final_lfp_loss,status
+DVN + SIGReg,"K=5, SIGReg weight=0.09",2,0.454149,0.956202,0.858133,0.407048,0.521216,0.164841,completed
+DVN no-reg,"K=5, SIGReg weight=0",2,0.463185,0.956038,0.856057,0.496250,0.522396,0.000195,completed_lfp_needs_check
+DVN K=1,"K=1, SIGReg weight=0.09",3,0.413332,0.958664,0.872827,0.442673,0.497977,0.127336,completed
+DVN SIGReg w=0.03,"K=5, SIGReg weight=0.03",2,0.451820,0.956374,0.858689,0.467447,0.519356,0.130136,completed
+DVN SIGReg w=0.06,"K=5, SIGReg weight=0.06",3,0.455578,0.955724,0.858933,0.466961,0.522605,0.117979,completed
+DVN SIGReg w=0.12,"K=5, SIGReg weight=0.12",2,0.461727,0.955513,0.855879,0.389244,0.520774,0.077961,completed_lfp_best_epoch_11
+DVN K=3,"K=3, SIGReg weight=0.09",5,0.418298,0.959807,0.877587,0.529685,0.453480,0.042193,completed_lfp_best_epoch_13
+DVN K=3 SIGReg w=0.12,"K=3, SIGReg weight=0.12",14,0.400482,0.962677,0.892546,0.046367,0.400482,0.046367,completed_lfp_best_epoch_13_lfp_0.039761
+DVN K=3 SIGReg w=0.15,"K=3, SIGReg weight=0.15",4,0.420170,0.958268,0.872462,0.631980,0.531166,0.065169,completed_stronger_reg_degrades_action_lfp_best_final
+DVN w/o latent dynamics,"K=5, SIGReg weight=0.09, no loss_dyn",4,0.429868,0.957540,0.867250,0.486809,0.519700,0.592581,completed_lfp_degrades_no_dyn
+DVN K=3 no-reg,"K=3, SIGReg weight=0",3,0.468866,0.955951,0.858412,0.559293,0.530573,0.009942,completed_final_consistent_lfp_best_epoch_10_needs_collapse_check
+DVN K=1 SIGReg w=0.12,"K=1, SIGReg weight=0.12",5,0.424938,0.961551,0.883053,0.446028,0.471496,0.047265,completed_final_consistent_lfp_best_epoch_13

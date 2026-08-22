@@ -1,0 +1,28 @@
+method,checkpoint,test_split,action_loss,lfp_loss,status,note
+ViNT baseline,action-best epoch 3,go_stanford,0.404797,,completed,direct policy no LFP branch
+ViNT baseline,action-best epoch 3,recon,0.336331,,completed,direct policy no LFP branch
+ViNT baseline,action-best epoch 3,scand,0.342661,,completed,direct policy no LFP branch
+DVN + SIGReg K=5,action-best epoch 2,go_stanford,0.454800,0.407306,completed,
+DVN + SIGReg K=5,action-best epoch 2,recon,0.354587,0.417211,completed,
+DVN + SIGReg K=5,action-best epoch 2,scand,0.167233,0.398406,completed,
+DVN + SIGReg K=5,LFP-best/final epoch 14,go_stanford,0.521799,0.165570,completed,
+DVN + SIGReg K=5,LFP-best/final epoch 14,recon,0.296079,0.148503,completed,
+DVN + SIGReg K=5,LFP-best/final epoch 14,scand,0.188432,0.100377,completed,
+DVN no-reg,action-best epoch 2,go_stanford,0.463531,0.495417,completed,
+DVN no-reg,action-best epoch 2,recon,0.349353,0.549902,completed,
+DVN no-reg,action-best epoch 2,scand,0.214560,0.555660,completed,
+DVN no-reg,LFP-best/final epoch 14,go_stanford,0.523182,0.000195,completed,lfp_needs_check
+DVN no-reg,LFP-best/final epoch 14,recon,0.294449,0.000191,completed,lfp_needs_check
+DVN no-reg,LFP-best/final epoch 14,scand,0.187054,0.000183,completed,lfp_needs_check
+DVN K=3 w=0.09,action-best epoch 5,go_stanford,0.416141,0.530030,completed,K=3 supplemental cross-dataset eval
+DVN K=3 w=0.09,action-best epoch 5,recon,0.356881,0.514129,completed,K=3 supplemental cross-dataset eval
+DVN K=3 w=0.09,action-best epoch 5,scand,0.275339,0.401615,completed,K=3 supplemental cross-dataset eval
+DVN K=3 w=0.09,LFP-best epoch 13,go_stanford,0.468291,0.029934,completed,K=3 supplemental cross-dataset eval
+DVN K=3 w=0.09,LFP-best epoch 13,recon,0.263395,0.069664,completed,K=3 supplemental cross-dataset eval
+DVN K=3 w=0.09,LFP-best epoch 13,scand,0.197452,0.010835,completed,K=3 supplemental cross-dataset eval
+DVN K=3 w=0.12,action/final epoch 14,go_stanford,0.399158,0.046472,completed,new main candidate action/final checkpoint
+DVN K=3 w=0.12,action/final epoch 14,recon,0.223623,0.072457,completed,new main candidate action/final checkpoint
+DVN K=3 w=0.12,action/final epoch 14,scand,0.222749,0.030207,completed,new main candidate action/final checkpoint
+DVN K=3 w=0.12,LFP-best epoch 13,go_stanford,0.403661,0.039931,completed,new main candidate LFP-best checkpoint
+DVN K=3 w=0.12,LFP-best epoch 13,recon,0.241198,0.072747,completed,new main candidate LFP-best checkpoint
+DVN K=3 w=0.12,LFP-best epoch 13,scand,0.211293,0.027147,completed,new main candidate LFP-best checkpoint

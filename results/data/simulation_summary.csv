@@ -1,0 +1,7 @@
+scene,method,runs,validated_successes,validated_success_rate_pct,strict_1m_successes,strict_1m_success_rate_pct,endpoint_within_5m_count,endpoint_error_mean_m,endpoint_error_sd_m,endpoint_error_median_m,path_completion_mean_pct,path_completion_sd_pct,collision_or_stall_count,timeout_count,reported_goal_false_positive_count
+indoor,LCP-Nav-LFP,5,5,100.0,3,60.0,5,1.036,0.100,0.977,100.0,0.0,0,0,0
+indoor,ViNT,5,0,0.0,0,0.0,0,11.563,0.828,11.240,48.2,27.3,5,0,0
+forest,LCP-Nav-LFP,5,4,80.0,2,40.0,4,5.299,7.930,2.858,79.2,42.1,1,0,0
+forest,ViNT,5,0,0.0,0,0.0,0,24.914,11.434,18.652,44.8,11.4,2,3,0
+campus,LCP-Nav-LFP,5,2,40.0,1,20.0,3,5.697,5.237,3.049,83.8,17.5,3,0,0
+campus,ViNT,5,0,0.0,0,0.0,0,20.404,1.421,20.460,100.0,0.0,0,0,5

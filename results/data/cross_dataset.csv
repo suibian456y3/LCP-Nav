@@ -1,0 +1,10 @@
+method_id,method,checkpoint,dataset,action_loss,lfp_loss,status,include_in_action_plot,include_in_lfp_plot
+vint_baseline,ViNT baseline,action-best epoch 3,Go Stanford,0.404797,,completed,true,false
+vint_baseline,ViNT baseline,action-best epoch 3,ReCon,0.336331,,completed,true,false
+vint_baseline,ViNT baseline,action-best epoch 3,SCAND,0.342661,,completed,true,false
+dvn_k3_w012_action,DVN + SIGReg (K3 w0.12),action/final epoch 14,Go Stanford,0.399158,0.046472,completed,true,true
+dvn_k3_w012_action,DVN + SIGReg (K3 w0.12),action/final epoch 14,ReCon,0.223623,0.072457,completed,true,true
+dvn_k3_w012_action,DVN + SIGReg (K3 w0.12),action/final epoch 14,SCAND,0.222749,0.030207,completed,true,true
+dvn_k3_w012_lfp,DVN + SIGReg (K3 w0.12),LFP-best epoch 13,Go Stanford,0.403661,0.039931,completed,false,true
+dvn_k3_w012_lfp,DVN + SIGReg (K3 w0.12),LFP-best epoch 13,ReCon,0.241198,0.072747,completed,false,true
+dvn_k3_w012_lfp,DVN + SIGReg (K3 w0.12),LFP-best epoch 13,SCAND,0.211293,0.027147,completed,false,true

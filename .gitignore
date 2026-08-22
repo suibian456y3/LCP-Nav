@@ -11,8 +11,8 @@ runs/
 *.log
 
 # Datasets, checkpoints and large binary artifacts
-data/
-datasets/
+/data/
+/datasets/
 checkpoints/
 model_weights/
 *.pth
@@ -44,6 +44,7 @@ src/vint_train/models/lsnet/*_bak.py
 
 # Keep the public configuration surface focused on LCP-Nav experiments
 src/config/*.yaml
+!src/config/defaults.yaml
 !src/config/dvn_sigreg_go_stanford_15.yaml
 !src/config/dvn_sigreg_go_stanford_eval_smoke.yaml
 !src/config/dvn_k3_sigreg_w012_go_stanford_15.yaml
