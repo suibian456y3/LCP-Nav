@@ -1,0 +1,221 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+\usepackage{fontspec}
+\usepackage{xeCJK}
+\setmainfont{Liberation Serif}
+\setCJKmainfont[Scale=1.08]{Noto Serif CJK SC}
+\setCJKsansfont{Noto Sans CJK SC}
+\linespread{1.10}
+
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage{microtype}
+
+\graphicspath{{figures/}}
+
+\renewcommand{\IEEEkeywordsname}{关键词}
+\begin{document}
+
+\title{LCP-Nav：面向跨域目标条件视觉导航的潜在后果预测}
+
+\author{\IEEEauthorblockN{作者姓名}
+\IEEEauthorblockA{\textit{院系与单位}\\
+城市，国家\\
+author@email.com}}
+
+\maketitle
+
+\begin{abstract}
+目标条件视觉导航支持移动机器人穿行于建筑物、绿化道路和校园道路。然而，路线进度并不等于可靠到达：直接式策略即使沿路线前进，也可能因没有评估不同动作的未来后果而停在远离视觉目标的位置。本文提出导航潜在后果预测（Latent Consequence Prediction for Navigation，LCP-Nav），通过生成有限候选轨迹、预测动作条件潜变量终点并进行候选选择，在不生成未来图像的情况下实现轻量后果感知决策。五随机种子跨域测试、匹配诊断和重复 Gazebo 评估共同支持其改善迁移与闭环可靠性，同时保持实时推理。结果表明，潜在后果预测可为校园类环境提供终点感知导航的轻量归纳偏置；本文结论仍限于所评估的数据集、检查点规则和固定仿真路线。
+\end{abstract}
+
+\begin{IEEEkeywords}
+视觉导航，世界模型，潜变量动力学，目标条件导航，移动机器人
+\end{IEEEkeywords}
+
+\section{引言}
+
+目标条件视觉导航可使移动机器人仅依据近期 RGB 观测和目标图像，在建筑物、绿化道路与校园道路之间移动。这类路线会放大局部误差：偏离可能阻断受限通道，或逐步累积为较大的终点误差。闭环审计中，ViNT 在校园路线的平均拓扑进度达到 100\%，但 5 次运行均未满足经验证到达条件，且最终距示范终点仍有 $20.40\pm1.42$~m。拓扑进度仍有信息价值，但不能单独证明到达。
+
+GNM 和 ViNT 通过共享动作表示与异构机器人数据支持跨平台和跨环境迁移~\cite{gnm,vint}，但它们直接预测局部轨迹，不比较不同候选最终可能到达的位置。像素生成式世界模型通过预测未来观测提供这种预见能力~\cite{nwm,uniwm}，但当预测仅用于动作排序时，生成逼真图像会带来较高成本。只要表示保持非退化，潜变量动力学即可提供更轻量的替代方案。因此，本文研究动作条件潜在后果能否在不改变感知接口的情况下支持终点感知选择。
+
+LCP-Nav 实现“提议—想象—选择”流程：确定性候选头提出 $K$ 条轨迹，共享潜变量动力学想象其终点，评分器选择与目标最一致的候选。未来图像仅用于训练监督，SIGReg 抑制潜变量坍塌。匹配的五随机种子测试、功能性干预和重复仿真分别评估迁移、机制、到达与计算成本。本文结论限定为匹配离线协议和校园类固定 Gazebo 路线下的轻量预测归纳偏置。
+
+\section{相关工作}
+
+\textbf{通用视觉导航策略。}ViNG 将视觉目标与拓扑记忆结合~\cite{ving}；GNM 对异构机器人数据进行了标准化~\cite{gnm}；ViNT 则扩展了基于 Transformer 的目标条件策略~\cite{vint}。NoMaD 引入扩散式多模态动作生成与目标掩码~\cite{nomad}。LiMo 使用规划器生成的监督补充有限示范，从而提高数据效率~\cite{limo}。零样本部署失败与易碰撞轨迹的研究表明，直接 RGB 策略仍对域偏移和安全变化敏感~\cite{vfm-eval,care}。LCP-Nav 聚焦于策略内部的动作后果比较，并不替代几何安全系统。
+
+\textbf{世界模型与潜变量预测。}Navigation World Models 生成动作条件未来视图用于规划~\cite{nwm}，UniWM 则在自回归模型中联合视觉预见与动作生成~\cite{uniwm}。ExploreVLA 使用未来 RGB 与深度生成作为自动驾驶的密集监督~\cite{explorevla}。LCP-Nav 仅预测潜变量终点并对少量确定性候选进行排序，从而避免迭代采样和像素重建。其表示学习思想与 LeWorldModel~\cite{lewm} 相关，但本文的潜变量转移模型与距离估计、轨迹生成和候选选择联合训练。
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.99\textwidth]{fig1_lcp_architecture.pdf}
+\caption{LCP-Nav 架构。在线路径编码观测历史与目标图像，预测 $K=3$ 条候选轨迹，通过共享潜变量动力学滚动每条候选，并选择评分最高的想象终点。未来图像、专家动作教师强制、潜变量预测损失和 SIGReg 仅在训练阶段使用。}
+\label{fig:architecture}
+\end{figure*}
+
+\section{方法}
+
+\subsection{问题定义与总体架构}
+
+由于路线进度可能保持较高而终点误差仍不断增大，本文将局部规划建模为后果感知选择，而非单轨迹回归。在时刻 $t$，策略接收观测序列 $O_t=\{o_{t-P},\ldots,o_t\}$ 和目标图像 $o_g$。模型预测时间目标距离以及一段包含 $H$ 个局部航点的轨迹，其中 $a_i=(\Delta x_i,\Delta y_i,\cos\theta_i,\sin\theta_i)$。观测编码器与目标编码器生成视觉 token，Transformer 将其融合为 $h_t$。随后，候选轨迹头预测
+\begin{equation}
+\{\hat A_t^1,\ldots,\hat A_t^K\}=f_{\mathrm{cand}}(h_t),
+\end{equation}
+其中每条候选轨迹包含 $H$ 个航点。图~\ref{fig:architecture} 区分了部署路径与仅在训练阶段使用的监督信号。
+
+
+\subsection{提议、想象与选择}
+
+LCP-Nav 将轨迹提议与想象终点选择分离。对于候选轨迹 $k$，轨迹误差由平均 Smooth-L1 位置误差与朝向余弦距离组成，即 $e_k=e_k^{\mathrm{pos}}+\lambda_\theta e_k^\theta$。候选回归与排序不采用硬 best-of-$K$ 指派，而是使用软目标
+\begin{equation}
+w_k=\frac{e^{-e_k/\tau_a}}{\sum_j e^{-e_j/\tau_a}},\qquad
+q_k=\frac{e^{-e_k/\tau_s}}{\sum_j e^{-e_j/\tau_s}},
+\end{equation}
+其中 $L_{\mathrm{reg}}=\sum_k w_ke_k$，$L_{\mathrm{score}}=-\sum_kq_k\log\operatorname{softmax}(s)_k$。完整候选目标为
+\begin{equation}
+L_{\mathrm{cand}}=L_{\mathrm{reg}}+L_{\mathrm{score}}+0.1L_{\mathrm{smooth}}+0.05L_{\mathrm{step}}+0.02L_{\mathrm{div}}.
+\end{equation}
+平滑项和步长项抑制局部不连续运动，$L_{\mathrm{div}}$ 则防止所有候选终点坍缩到同一位置。实验取 $\lambda_\theta=1$、$\tau_a=\tau_s=1$，并将单步最大长度设为 1.5。有限候选设计具有固定计算开销，但并不假设环境中恰好存在 $K$ 个真实动作模态。
+
+共享转移模型首先预测 $\hat z_{t+1}=F_{\mathrm{dyn}}(z_t,a_t)$，随后沿每条候选轨迹递归滚动：
+\begin{equation}
+\hat z_{t+h}^{k}=F_{\mathrm{dyn}}(\hat z_{t+h-1}^{k},\hat a_{t+h-1}^{k}).
+\end{equation}
+评分器融合当前潜变量、目标潜变量、想象终点、目标与终点之差以及编码后的轨迹特征，得到 $s_k$；部署时选择 $k^*=\arg\max_k s_k$。因此，模型评估的是候选动作的预测后果，而非仅由 $h_t$ 回归单条轨迹。
+
+评分器输入为 $[z_t,z_g,\hat z_{t+H}^{k},z_g-\hat z_{t+H}^{k},\phi_A(\hat A^k)]$，其中 $\phi_A$ 为两层轨迹编码器。候选误差提供软排序目标，因此无需几何地图或终点距离标注。所有候选在滚动过程中共享转移参数。因此，增大 $K$ 仅增加并行滚动数量，不会改变感知接口。
+
+\subsection{预测训练与非坍塌正则化}
+
+训练时，专家动作驱动三步教师强制滚动，真实未来帧提供停止梯度的潜变量目标。使用有效性掩码 $m_{b,h}$ 后，动力学损失为
+\begin{equation}
+L_{\mathrm{dyn}}=\frac{\sum_{b,h}m_{b,h}[1-\cos(\hat z_{b,t+h},\operatorname{sg}(z_{b,t+h}))]}{\sum_{b,h}m_{b,h}}.
+\end{equation}
+仅优化预测可能使不同状态坍缩到相同表示。SIGReg 将观测 token 与未来 token 的一维随机投影匹配到标准高斯分布。对于嵌入 $Z\in\mathbb{R}^{B\times T\times D}$、单位投影 $r_m$、节点 $u_l$ 和 $W=\sum_l\omega_l$，有
+\begin{equation}
+\begin{aligned}
+L_{\mathrm{sig}}=\frac{1}{MW}\sum_{m,l}\omega_l\big[&\big(\mathbb{E}\cos(u_l Z^\top r_m)-e^{-u_l^2/2}\big)^2\\
+&+\big(\mathbb{E}\sin(u_l Z^\top r_m)\big)^2\big].
+\end{aligned}
+\end{equation}
+其中期望对批次维和时间 token 求平均。完整训练目标为
+\begin{equation}
+L=L_{\mathrm{dist}}+L_{\mathrm{cand}}+\lambda_{\mathrm{dyn}}L_{\mathrm{dyn}}+\lambda_{\mathrm{sig}}L_{\mathrm{sig}}.
+\end{equation}
+本文模型采用 $P=5$、$H=5$、$K=3$、512 维视觉特征、四层 Transformer，并设置 $\lambda_{\mathrm{sig}}=0.12$。所有在线输入均为 $96\times96$ RGB 图像，推理阶段不需要未来图像。
+
+未来帧直接监督时域为 $H_f=3$，而部署时每条候选沿全部 $H=5$ 个动作步滚动，因此最后两步属于短时域外推。有效性掩码排除不存在的未来目标。SIGReg 使用 1024 个单位投影和 $[0,3]$ 上的 17 个特征函数节点，不执行硬白化。训练依赖真实未来观测，而部署只需要观测历史、目标图像和候选动作。
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.98\textwidth]{fig2_offline_multiseed.pdf}
+\caption{五随机种子离线动作损失。点表示各随机种子，菱形和误差棒表示均值 $\pm$ 样本标准差。所有检查点均依据 Go Stanford 验证集选择；ReCon 和 SCAND 为仅使用已选检查点的零样本测试。预测路径消融在其他训练条件匹配的情况下移除想象终点、潜变量滚动和动力学监督。}
+\label{fig:offline}
+\end{figure*}
+
+\section{实验}
+
+\subsection{实验协议}
+
+\textbf{离线评估。}完整 LCP-Nav、匹配的预测路径消融和 ViNT 分别使用随机种子 34、38、42、43 和 44 在 Go Stanford 上独立训练。消融模型保持输入、骨干网络、动作接口、数据和训练预算不变，仅移除想象终点、动作条件滚动和动力学监督。各检查点仅依据验证动作损失选择，随后在固定的 Go Stanford、ReCon 和 SCAND 测试样本上评估。ReCon 和 SCAND 不进行微调或目标域选择。每个随机种子的完整训练过程作为一个独立重复（$n=5$）。
+
+所有模型均使用 $96\times96$ 的实际运行图像、六帧观测序列和五航点动作时域。视觉编码器维度为 512，Transformer 包含四层注意力，AdamW 学习率为 $8\times10^{-4}$。五随机种子比较中的数据、优化预算、验证协议和测试样本均保持匹配。评估清单在论文测试前固定样本索引、当前帧与目标帧、负目标标记和采样随机种子。
+
+为避免事后选择，本文预先定义两类检查点。LCP-Nav-action 与 ViNT 均依据验证动作损失选择，用于全部离线动作比较。LCP-Nav-LFP 仅依据验证潜变量预测损失选择，用于滚动诊断和闭环部署。论文测试集、ReCon、SCAND 和 Gazebo 结果均不参与检查点选择，从而避免在观察测试性能后从多个指标中挑选最优检查点。
+
+离线动作损失对五个预测航点的 Smooth-L1 位置误差和朝向余弦距离求平均。我们还检查航点余弦和朝向余弦，以区分平移质量与朝向质量。跨域评估仅使用已选检查点：每个随机种子都直接采用 Go Stanford 验证集选出的检查点，不进行目标域适配或重新选择。图~\ref{fig:offline} 的不确定性以随机种子级结果计算，而不是以帧级样本计算。
+
+\textbf{闭环评估。}Gazebo 实验采用固定的室内障碍、森林道路和校园道路路线，分别作为受限通道、外观变化和长时域终点漂移的受控压力测试。每种方法在每条路线运行五次，共计 30 次。场景、路线、起终点位姿、相机、底盘、控制器和拓扑导航流程均保持一致。一次经验证到达要求程序报告到达、终点误差不超过 5~m，且没有碰撞或超时。LCP-Nav 使用验证潜变量预测检查点，ViNT 使用验证动作损失检查点。因此，该比较评估的是两个预先声明的部署策略，而非仅隔离架构差异。
+
+终点误差定义为机器人最终位置到示范终点的欧氏距离。拓扑进度定义为到达的最大节点索引除以目标节点索引。每个重复均为同一检查点的一次完整部署，闭环结果不参与检查点选择。
+
+部署时，LCP-Nav 在一次前向过程中生成三条局部轨迹，通过共享动力学模型滚动每条轨迹，并执行评分最高的候选。ViNT 直接执行其轨迹输出。两种策略使用相同的相机流、底盘约束、控制频率、拓扑图和到达检测器。每个场景的五次重复从匹配的位姿和朝向开始。运行仅在程序报告到达、碰撞、超时或固定路线流程结束时终止，因此分析不会截断失败轨迹。
+
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.96\textwidth]{fig3_overhead_scene_context.pdf}
+\vspace{0.35em}
+\includegraphics[width=0.96\textwidth,trim=0 0 0 175bp,clip]{fig3_closed_loop_simulation.pdf}
+\caption{场景驱动的 Gazebo 闭环评估。三条路线分别检验受限通道、外观变化和终点漂移。上：标定俯视图；黄色虚线为示范路线，蓝色和橙色分别为保留的 LCP-Nav 与 ViNT 原始轨迹，圆形表示起点，星形表示示范终点，爆裂符号表示失败停止位置。下：每种方法在每个场景五次运行的经验证到达次数和终点误差（菱形为均值；终点误差采用对数坐标；虚线表示 1~m 和 5~m）。}
+\label{fig:simulation}
+\end{figure*}
+
+\subsection{后果预测能否改善跨域迁移？}
+
+为检验预测路径在匹配训练条件下能否改善迁移，图~\ref{fig:offline} 给出全部五个随机种子的动作损失。相比匹配消融，LCP-Nav 在 Go Stanford 上将均值从 0.4599 降至 0.4510，在 ReCon 上从 0.3416 降至 0.3226，在 SCAND 上从 0.2579 降至 0.2363，对应降幅为 1.9\%、5.6\% 和 8.3\%。ViNT 在训练域更优（0.3771），但 LCP-Nav 在 ReCon（0.3226 对 0.3399）和 SCAND（0.2363 对 0.3319）上更低。SCAND 的五个随机种子均优于 ViNT，配对均值差为 $-0.0955$，95\% 穷举 bootstrap 区间为 $[-0.1228,-0.0698]$。相对匹配消融的增益随域偏移增大，将迁移改善更直接地联系到预测路径。
+
+我们还在物理单位下审计跨域结果。Go Stanford、ReCon 和 SCAND 的航点间距分别为 0.12、0.25 和 0.38~m。使用这些尺度重新计算平移与朝向指标后，迁移趋势保持不变，说明增益并非由单一归一化约定造成。划分审计表明，三个数据域的训练轨迹与测试轨迹均无交集，Go Stanford 验证轨迹与测试轨迹也无重叠。
+
+
+随后，我们检验学习到的预测路径是否承担预期的决策作用。在 $\lambda_{\mathrm{sig}}=0.12$ 时，$K=3$ 的动作损失（0.3919）低于 $K=1$（0.4318）和 $K=5$（0.4685）。移除 SIGReg 后，最佳潜变量预测损失降至 0.0023，但有效秩坍缩至 1.02，第一特征值解释 99.7\% 的方差。仅循环置换想象终点会使三个数据集的候选选择一致率下降约 43\%。因此，评分器确实使用终点特征，而非将其视为冗余输入。这些单次运行诊断用于解释设计选择，但不承担主要统计结论。
+
+多随机种子滚动用于检验转移模型能否递归使用。对于动作选择检查点，完整模型的一步、两步和三步潜变量 MSE 分别为 1.653、2.318 和 2.732；匹配消融分别为 3.743、4.195 和 4.604，对应降低 55.8\%、44.7\% 和 40.7\%。预测检查点在第三步仍保持 $0.9024\pm0.0387$ 的余弦一致性，而消融下降到 $0.5098\pm0.0529$。在配对干预中，候选轨迹及当前/目标潜变量保持不变，仅置换终点特征。Go Stanford、ReCon 和 SCAND 上的一致率分别下降 43.6\%、42.7\% 和 43.2\%。这些结果将潜变量预测与实际部署决策链连接起来。
+
+\subsection{路线进度能否转化为可靠到达？}
+
+为检验预测路径能否改善终点可靠性，图~\ref{fig:simulation} 将空间场景与重复运行证据结合。俯视图保留场景几何、示范路线以及每种方法的一条原始轨迹；下方量化面板则报告每种方法在每个场景的全部五次运行。
+
+
+俯视图显示了室内障碍通过失败、森林道路偏离以及校园路线终点定位误差的空间位置。该部分提供定性场景信息，下方量化面板则汇总所有记录的运行。
+
+下方面板报告主要部署结果。LCP-Nav 在室内、森林和校园场景分别实现 5/5、4/5 和 2/5 次经验证到达，ViNT 在三个场景均为 0/5，总计分别为 11/15（73.3\%）和 0/15。LCP-Nav 的平均终点误差分别为 1.036、5.299 和 5.697~m，ViNT 则为 11.563、24.914 和 20.404~m。在校园场景中，ViNT 的平均节点进度达到 100\%，但距终点仍约 20~m。因此，仅凭拓扑进度不能判定到达。
+
+\begin{table}[t]
+\centering
+\caption{重复闭环仿真结果（均值 $\pm$ 样本标准差；每种方法、每个场景 $n=5$ 次完整运行）。}
+\label{tab:closedloop}
+\setlength{\tabcolsep}{3.2pt}
+\footnotesize
+\begin{tabular}{@{}llccc@{}}
+\toprule
+场景 & 方法 & 到达次数 & 误差（m） & 进度（\%） \\
+\midrule
+室内 & LCP-Nav & 5/5 & $1.04\pm0.10$ & $100.0\pm0.0$ \\
+       & ViNT    & 0/5 & $11.56\pm0.83$ & $48.2\pm27.3$ \\
+森林 & LCP-Nav & 4/5 & $5.30\pm7.93$ & $79.2\pm42.1$ \\
+       & ViNT    & 0/5 & $24.91\pm11.43$ & $44.8\pm11.4$ \\
+校园 & LCP-Nav & 2/5 & $5.70\pm5.24$ & $83.8\pm17.5$ \\
+       & ViNT    & 0/5 & $20.40\pm1.42$ & $100.0\pm0.0$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+分场景结果进一步解释总体成功次数。在室内场景，LCP-Nav 五次均成功，终点误差标准差仅为 $0.10$~m；ViNT 的平均进度为 $48.2\%\pm27.3\%$，并在距终点较远处停止。在森林场景，尽管 LCP-Nav 有四次到达，一次失败仍使误差扩大到 $5.30\pm7.93$~m。在校园场景，LCP-Nav 达到 $83.8\%\pm17.5\%$ 的进度，但仅有两次经验证到达，说明仍存在长时域漂移。ViNT 虽记录完整节点进度，终点误差仍为 $20.40\pm1.42$~m。复合到达条件因此能够区分路线经过与准确终止。
+
+将终点阈值收紧到 1~m，并同时要求程序报告到达且无碰撞或超时后，LCP-Nav 仍有 6/15 次通过，ViNT 为 0/15。该敏感性检查说明 5~m 结果并非仅由宽松半径造成。统计单位始终为完整运行，失败运行也保留在图~\ref{fig:simulation} 的终点误差分布中。
+
+
+策略推理效率在 100 次预热后测量 500 次，输入尺寸为 $\mathrm{obs}=[1,6,3,96,96]$ 和 $\mathrm{goal}=[1,3,96,96]$。LCP-Nav 包含 26.77~M 参数，比 ViNT 的 29.66~M 少 9.8\%，计算量约为 1.164~GFLOPs。在 RTX~4090、float32 输入下，p95 延迟为 24.3--24.8~ms，ViNT 为 22.6~ms。峰值显存为 129.6--131.3~MiB，低于 ViNT 的 142.7~MiB。因此，有限潜变量滚动在仅增加少量延迟的同时，仍保持 40~Hz 以上的策略推理。
+
+\section{讨论}
+
+本文的核心发现是，在所评估的校园类路线中，路线进度与终点到达不能相互替代。ViNT 在校园路线取得完整平均进度却仍具有较大终点误差，直接揭示了这一差距。LCP-Nav 通过将轨迹提议与后果感知选择分离来处理该问题。迁移、滚动、终点干预和闭环结果共同支持预测路径的预期作用及其实时性。
+
+三条路线近似校园建筑物、绿化道路与开放道路之间的受限通道、植被外观变化和终点漂移，但不构成真实校园验证或安全系统。由于检查点目标不同，闭环结果比较的是预先声明的部署策略；五次重复仅估计固定路线稳定性；经验证到达也不是形式化安全保证。实机实验应采用匹配检查点和更多校园路线，再逐步加入光照变化、行人和动态障碍，并继续记录终点误差与失败原因。
+
+\section{结论}
+
+LCP-Nav 通过有限候选提议、潜变量滚动、想象终点选择和非坍塌正则化，使目标条件导航具备终点感知能力。五随机种子测试与重复 Gazebo 运行支持其在实时计算预算内改善迁移和终点可靠性。当前证据仍限于已有数据集和固定仿真，因此下一步需要在真实校园路线中开展匹配检查点测试。
+
+\renewcommand{\refname}{参考文献}
+\begin{thebibliography}{00}
+\bibitem{ving} D. Shah, B. Eysenbach, G. Kahn, N. Rhinehart, and S. Levine, ``ViNG: Learning open-world navigation with visual goals,'' in \emph{Proc. IEEE Int. Conf. Robot. Autom.}, 2021.
+\bibitem{gnm} D. Shah, A. Sridhar, A. Bhorkar, N. Hirose, and S. Levine, ``GNM: A general navigation model to drive any robot,'' in \emph{Proc. IEEE Int. Conf. Robot. Autom.}, 2023.
+\bibitem{vint} D. Shah \emph{et al.}, ``ViNT: A foundation model for visual navigation,'' in \emph{Proc. Conf. Robot Learn.}, vol. 229, pp. 711--733, 2023.
+\bibitem{nomad} A. Sridhar, D. Shah, C. Glossop, and S. Levine, ``NoMaD: Goal masked diffusion policies for navigation and exploration,'' arXiv:2310.07896, 2023.
+\bibitem{vfm-eval} M. Guerrier, K. Soma, J. Pavlasek, and G. Beltrame, ``Can vision foundation models navigate? Zero-shot real-world evaluation and lessons learned,'' arXiv:2603.25937, 2026.
+\bibitem{care} J. Kim, J. Sim, W. Kim, K. Sycara, and C. Nam, ``CARE: Enhancing safety of visual navigation through collision avoidance via repulsive estimation,'' in \emph{Proc. 9th Conf. Robot Learn.}, 2025.
+\bibitem{limo} Y. Inglin, J. Frey, C. Chen, and M. Hutter, ``Less is more: Scalable visual navigation from limited data,'' arXiv:2601.17815, 2026.
+\bibitem{nwm} A. Bar, G. Zhou, D. Tran, T. Darrell, and Y. LeCun, ``Navigation world models,'' arXiv:2412.03572, 2024.
+\bibitem{uniwm} Y. Dong \emph{et al.}, ``Unified world models: Memory-augmented planning and foresight for visual navigation,'' arXiv:2510.08713, 2025.
+\bibitem{explorevla} Z. Sheng, X. Ye, J. Luo, S. Chen, and L. Ren, ``ExploreVLA: Dense world modeling and exploration for end-to-end autonomous driving,'' arXiv:2604.02714, 2026.
+\bibitem{lewm} L. Maes, Q. Le Lidec, D. Scieur, Y. LeCun, and R. Balestriero, ``LeWorldModel: Stable end-to-end joint-embedding predictive architecture from pixels,'' arXiv:2603.19312, 2026.
+\end{thebibliography}
+
+\end{document}

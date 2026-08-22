@@ -1,0 +1,74 @@
+project_name: vint-release
+run_name: dvn_sigreg_w003_go_stanford_15
+
+use_wandb: False
+train: True
+debug_intermediates: True
+batch_size: 128
+eval_batch_size: 128
+epochs: 15
+gpu_ids: [1, 2]
+num_workers: 8
+lr: 8e-4
+optimizer: adamw
+clipping: False
+max_norm: 1.
+scheduler: "cosine"
+warmup: True
+warmup_epochs: 4
+cyclic_period: 10
+plateau_patience: 3
+plateau_factor: 0.5
+seed: 42
+
+depth_img: True
+
+model_type: dvn
+obs_encoder: "efficientnet-b0"
+obs_encoding_size: 512
+mha_num_attention_heads: 4
+mha_num_attention_layers: 4
+mha_ff_dim_factor: 4
+num_hypotheses: 5
+late_fusion: False
+
+sigreg:
+  weight: 0.03
+  knots: 17
+  num_proj: 1024
+
+normalize: True
+context_type: temporal
+context_size: 5
+alpha: 0.5
+
+distance:
+  min_dist_cat: 0
+  max_dist_cat: 20
+action:
+  min_dist_cat: 0
+  max_dist_cat: 10
+close_far_threshold: 10
+
+len_traj_pred: 5
+learn_angle: True
+
+image_size: [96, 96]  # paper protocol: processed images are 96x96; no implicit resize
+goal_type: "image"
+
+datasets:
+  go_stanford:
+    data_folder: data/datasets/go_stanford_96
+    train: data/splits/go_stanford/train/
+    test: data/splits/go_stanford/test/
+    end_slack: 0
+    goals_per_obs: 2
+    negative_mining: True
+
+print_log_freq: 50
+image_log_freq: 0
+num_images_log: 8
+pairwise_test_freq: 0
+eval_fraction: 1.0
+wandb_log_freq: 10
+eval_freq: 1

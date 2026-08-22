@@ -1,0 +1,60 @@
+# Python and experiment-generated files
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.venv/
+wandb/
+logs/
+runs/
+*.log
+
+# Datasets, checkpoints and large binary artifacts
+data/
+datasets/
+checkpoints/
+model_weights/
+*.pth
+*.pt
+*.ckpt
+*.bag
+*.tar
+*.tar.gz
+*.zip
+
+# LaTeX build products
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.toc
+*.xdv
+missfont.log
+
+# Development-only model variants kept outside the public release
+src/vint_train/models/dinov2_bak/
+src/vint_train/models/dvn/*_bak*.py
+src/vint_train/models/dvn/*_v[0-9]*.py
+src/vint_train/models/lsnet/*_bak.py
+
+# Keep the public configuration surface focused on LCP-Nav experiments
+src/config/*.yaml
+!src/config/dvn_sigreg_go_stanford_15.yaml
+!src/config/dvn_sigreg_go_stanford_eval_smoke.yaml
+!src/config/dvn_k3_sigreg_w012_go_stanford_15.yaml
+!src/config/dvn_k3_w012_actionbest_cross_eval.yaml
+!src/config/dvn_k3_w012_lfpbest_cross_eval.yaml
+!src/config/dvn_k3_actionbest_cross_eval.yaml
+!src/config/dvn_k3_lfpbest_cross_eval.yaml
+!src/config/dvn_k3_noreg_go_stanford_15.yaml
+!src/config/dvn_k1_go_stanford_15.yaml
+!src/config/dvn_k1_sigreg_w012_go_stanford_15.yaml
+!src/config/dvn_k3_sigreg_w015_go_stanford_15.yaml
+!src/config/dvn_sigreg_w003_go_stanford_15.yaml
+!src/config/dvn_sigreg_w006_go_stanford_15.yaml
+!src/config/vint_go_stanford_15.yaml
