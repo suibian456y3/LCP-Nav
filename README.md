@@ -57,6 +57,51 @@ recent RGB observations + goal image
 
 The model does not synthesize future RGB frames at deployment time. It predicts future consequences in the learned latent space, which keeps the decision stage compact and avoids the cost and instability of pixel-level future prediction.
 
+## Visual project tour
+
+The following figures give a quick visual explanation of the project. Click any image to open the full-resolution PNG; the corresponding vector PDF files are available in [`results/figures/`](results/figures/).
+
+<table>
+<tr>
+<td width="50%" align="center">
+<a href="assets/overhead_scene.png"><img src="assets/overhead_scene.png" alt="Simulation overhead scene" width="100%"></a>
+<br><strong>Scenario context</strong><br>
+Indoor, forest and campus-like simulation environments used to motivate the deployment setting.
+</td>
+<td width="50%" align="center">
+<a href="results/figures/fig3_imagined_endpoint_scoring.png"><img src="results/figures/fig3_imagined_endpoint_scoring.png" alt="Imagined endpoint scoring" width="100%"></a>
+<br><strong>Imagined endpoint scoring</strong><br>
+Candidate trajectories are rolled forward in latent space and compared with the goal representation.
+</td>
+</tr>
+<tr>
+<td width="50%" align="center">
+<a href="results/figures/fig5_go_stanford_main_results.png"><img src="results/figures/fig5_go_stanford_main_results.png" alt="Main offline results" width="100%"></a>
+<br><strong>Main offline results</strong><br>
+Held-out comparisons for the primary Go Stanford evaluation protocol.
+</td>
+<td width="50%" align="center">
+<a href="results/figures/fig_online_candidate_selection_examples.png"><img src="results/figures/fig_online_candidate_selection_examples.png" alt="Online candidate selection" width="100%"></a>
+<br><strong>Online candidate selection</strong><br>
+Examples of the propose--imagine--select process during navigation.
+</td>
+</tr>
+<tr>
+<td width="50%" align="center">
+<a href="results/figures/fig8_repeated_closed_loop_simulation.png"><img src="results/figures/fig8_repeated_closed_loop_simulation.png" alt="Repeated closed-loop simulation" width="100%"></a>
+<br><strong>Repeated closed-loop simulation</strong><br>
+Repeated deployment outcomes and failure modes across simulation scenarios.
+</td>
+<td width="50%" align="center">
+<a href="results/figures/fig8_4_campus_overhead_trajectory.png"><img src="results/figures/fig8_4_campus_overhead_trajectory.png" alt="Campus overhead trajectory" width="100%"></a>
+<br><strong>Campus-like navigation</strong><br>
+Overhead trajectory view for the environment most closely related to the intended application setting.
+</td>
+</tr>
+</table>
+
+For the complete evidence chain, including ablations, latent diagnostics, cross-dataset transfer and training dynamics, see the [extended results gallery](results/README.md).
+
 ## What is special about LCP-Nav?
 
 The released DVN implementation combines four components:
