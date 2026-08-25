@@ -12,41 +12,58 @@
 
 \begin{document}
 
-\title{LCP-Nav: Latent Consequence Prediction for Cross-Domain Goal-Conditioned Visual Navigation}
+\title{LCP-Nav: Latent Consequence Prediction for Cross-Domain Visual Navigation}
 
-\author{\IEEEauthorblockN{Author Name}
-\IEEEauthorblockA{\textit{Department and Institution}\\
-City, Country\\
-author@email.com}}
+\author{
+\IEEEauthorblockN{
+Zhonghua An\IEEEauthorrefmark{1},
+Jianxiang Liu\IEEEauthorrefmark{1},
+Yunzhao Yang\IEEEauthorrefmark{1},
+Ningyan Guo\IEEEauthorrefmark{1}\IEEEauthorrefmark{2}}
+\IEEEauthorblockA{
+\IEEEauthorrefmark{1}\textit{Beijing University of Posts and Telecommunications}\\
+Beijing, China\\
+\url{2294822424@qq.com}; \url{liujianxiang@bupt.edu.cn}\\
+\url{2025140284@bupt.cn}; \url{guoningyan@bupt.edu.cn}}
+\IEEEauthorblockA{\IEEEauthorrefmark{2}Corresponding author: Ningyan Guo}
+}
 
 \maketitle
 
 \begin{abstract}
-Goal-conditioned visual navigation supports mobile robots that traverse buildings, vegetation-rich paths, and campus roads. Yet route progress does not guarantee arrival: a direct policy may follow a route while stopping far from its visual goal because it does not evaluate alternative action consequences. We present Latent Consequence Prediction for Navigation (LCP-Nav), a lightweight policy that proposes finite trajectories, predicts their action-conditioned latent endpoints, and selects among them without generating future images. Five-seed cross-domain tests, matched diagnostics, and repeated Gazebo evaluations support improved transfer and closed-loop reliability while preserving real-time inference. These results motivate endpoint-aware navigation in campus-like environments, while claims remain limited to the evaluated datasets, checkpoint rules, and fixed simulation routes.
+Visual navigation policies can make steady route progress yet accumulate enough local error to miss an image-specified destination. Policies that directly regress one local trajectory provide no explicit comparison among plausible actions that terminate at different locations. We present Latent Consequence Prediction for Navigation (LCP-Nav), which proposes a finite set of trajectories, rolls each proposal through shared action-conditioned latent dynamics, and selects the predicted endpoint most consistent with the goal. Cross-domain tests show lower action loss than ViNT on ReCon and SCAND, while repeated Gazebo experiments show lower endpoint error and more validated arrivals across three routes. LCP-Nav uses 26.77~M parameters and reaches a p95 latency of 24.8~ms on an RTX~4090, sustaining inference above 40~Hz. The experiments show that latent endpoint comparison is an effective and efficient decision layer for visual navigation.
 \end{abstract}
 
 \begin{IEEEkeywords}
-visual navigation, world models, latent dynamics, goal-conditioned navigation, mobile robots
+visual navigation, world models, latent dynamics, mobile robots
 \end{IEEEkeywords}
 
 \section{Introduction}
 
-Goal-conditioned visual navigation can support mobile robots moving between buildings, vegetation-rich paths, and campus roads from recent RGB observations and a goal image. Such routes amplify local errors: deviations can block constrained passages or accumulate into large terminal error. In our closed-loop audit, ViNT reaches 100\% mean campus progress but 0/5 validated arrivals and finishes $20.40\pm1.42$~m from the demonstration endpoint. Progress remains informative, but alone cannot certify arrival.
+Visual navigation guides a mobile robot to an image-specified destination from recent RGB observations and a goal image. Modern policies learn this mapping from heterogeneous robot trajectories and transfer it across platforms and environments~\cite{gnm,vint}. Their success is commonly summarized by route progress or local action error. Neither quantity, however, directly describes where the robot finishes. Small deviations that appear harmless over one prediction horizon can accumulate, leaving a robot far from its destination after it has traversed most of the route.
 
-GNM and ViNT support transfer through shared action representations and heterogeneous robot data~\cite{gnm,vint}, yet directly predict local trajectories without comparing where alternatives may end. Pixel-generative world models provide such foresight by predicting future observations~\cite{nwm,uniwm}, but photorealistic generation is costly when used only for action ranking. Latent dynamics offer a lighter alternative if their representations remain non-degenerate. We therefore ask whether action-conditioned latent consequences can support endpoint-aware selection without changing the sensing interface.
+This mismatch is especially relevant to policies that directly regress a single local trajectory. Such a policy can learn a strong average action, but its output does not expose alternative motions or distinguish candidates by their predicted terminal states. Our closed-loop audit reveals the practical consequence: high topological progress can coexist with substantial endpoint error. Improving arrival therefore requires a decision variable tied to the consequence of an action sequence, rather than another estimate of local progress.
 
-LCP-Nav implements a propose--imagine--select pipeline: a deterministic head proposes $K$ trajectories, shared latent dynamics imagine their endpoints, and a scorer selects the endpoint most consistent with the goal. Future frames supervise only training, while SIGReg discourages latent collapse. Matched five-seed tests, functional interventions, and repeated simulation evaluate transfer, mechanism, arrival, and cost. The claim is bounded to a lightweight predictive bias under matched offline protocols and fixed campus-like Gazebo routes.
+Two local trajectories can be similarly plausible under imitation loss while leading to states with different relationships to the goal. Once one is executed, its displacement and heading error enter the next planning cycle. Retaining several feasible actions until their likely endpoints have been compared gives the policy a chance to avoid that error before execution.
+
+World models offer a natural route to consequence-aware decisions, but generating complete future RGB observations is unnecessary when the decision only requires a comparison among local actions~\cite{nwm,uniwm}. A compact latent transition can instead predict how an action sequence changes the task-relevant visual state. For this prediction to guide selection, two conditions must hold: different actions must produce distinguishable latent endpoints, and the selector must use those endpoints in relation to the goal.
+
+LCP-Nav is designed around these conditions. A deterministic proposal head exposes $K$ feasible local trajectories; shared action-conditioned dynamics map each proposal to an imagined endpoint; and a goal-aware scorer selects among the resulting consequences. Soft candidate supervision keeps proposal and ranking targets aligned, while SIGReg preserves variation in the latent state so that endpoint comparisons remain informative. Future observations supervise the dynamics during training, but inference uses the same observation history and goal image as a standard visual policy.
+
+The candidate head creates alternatives without iterative sampling, and the shared transition evaluates them in one representation space. The goal--endpoint difference represents terminal compatibility directly; non-collapse regularization keeps visually distinct states separable. LCP-Nav therefore changes how local actions are selected while retaining the original visual inputs and topological navigation interface.
+
+We test each link in this design. Matched offline experiments measure in-domain and cross-domain action prediction; recursive-rollout and endpoint-permutation tests determine whether the learned dynamics remain predictive and influence selection; repeated Gazebo runs measure endpoint error and validated arrival; and profiling quantifies the cost of finite latent rollout. The resulting evidence connects the proposed decision mechanism to both transfer and closed-loop behavior.
 
 \section{Related Work}
 
-\textbf{General visual-navigation policies.} ViNG introduced visual-goal navigation with topological memory~\cite{ving}; GNM standardized heterogeneous robot data~\cite{gnm}; and ViNT scaled a Transformer-based goal-conditioned policy~\cite{vint}. NoMaD added diffusion-based multimodal action generation and goal masking~\cite{nomad}. LiMo improves data efficiency by augmenting limited demonstrations with planner-generated supervision~\cite{limo}. Reports of zero-shot failures and collision-prone outputs show that direct RGB policies remain sensitive to domain and safety shifts~\cite{vfm-eval,care}. LCP-Nav addresses the narrower problem of comparing learned action consequences inside the policy and does not replace geometric safety systems.
+\textbf{General visual-navigation policies.} ViNG introduced visual navigation with topological memory~\cite{ving}; GNM standardized heterogeneous robot data~\cite{gnm}; and ViNT scaled a Transformer policy across robots~\cite{vint}. NoMaD models multimodal actions with diffusion and goal masking~\cite{nomad}, while LiMo augments limited demonstrations with planner-generated supervision~\cite{limo}. These approaches improve transfer, data efficiency, or action diversity, but their action output is not selected through an explicit prediction of each candidate's endpoint. Evaluations of zero-shot navigation and collision avoidance further motivate decisions that remain reliable under visual and geometric shifts~\cite{vfm-eval,care}.
 
-\textbf{World models and latent prediction.} Navigation World Models generate action-conditioned future views for planning~\cite{nwm}, while UniWM couples visual foresight and action generation in an autoregressive model~\cite{uniwm}. ExploreVLA uses future RGB and depth generation as dense supervision for autonomous driving~\cite{explorevla}. LCP-Nav instead predicts latent endpoints and ranks a small deterministic candidate set, avoiding iterative sampling and pixel reconstruction. Its representation-learning motivation is related to LeWorldModel~\cite{lewm}, but the latent transition is trained jointly with distance estimation, trajectory generation, and candidate selection.
+\textbf{World models and latent prediction.} Navigation World Models generate action-conditioned future views for planning~\cite{nwm}, and UniWM couples visual foresight with autoregressive action generation~\cite{uniwm}. ExploreVLA uses future RGB and depth as dense supervision for autonomous driving~\cite{explorevla}. LCP-Nav predicts only the latent endpoint needed to rank a small deterministic candidate set, eliminating pixel reconstruction and iterative action sampling. Related joint-embedding models stabilize prediction in representation space~\cite{lewm}; here, latent dynamics are trained jointly with distance estimation, trajectory proposal, and endpoint-based selection.
 
 \begin{figure*}[t]
 \centering
-\includegraphics[width=0.99\textwidth]{fig1_lcp_architecture.pdf}
-\caption{LCP-Nav architecture. The online path encodes the observation history and goal, predicts $K=3$ candidate trajectories, rolls each candidate through shared latent dynamics, and selects the highest-scoring imagined endpoint. Future images, expert-action teacher forcing, latent prediction loss, and SIGReg are used only during training.}
+\includegraphics[width=0.99\textwidth]{fig1_lcp_architecture_editable.png}
+\caption{LCP-Nav architecture. Six observation tokens and one current--goal fusion token enter a four-layer Transformer. Its shared representation feeds a ViNT-style temporal-distance head and an action head that produces three candidate trajectories. Latent dynamics predicts the consequence of each candidate, and the goal-conditioned scorer selects the executed action. During training, future RGB frames pass through the same observation encoder; the dynamics loss trains the shared latent rollout, while SIGReg regularizes observation and future embeddings. Solid arrows denote online inference; amber dashed arrows denote training-only supervision.}
 \label{fig:architecture}
 \end{figure*}
 
@@ -54,16 +71,16 @@ LCP-Nav implements a propose--imagine--select pipeline: a deterministic head pro
 
 \subsection{Problem and Architecture}
 
-Because route progress can remain high while terminal error grows, we formulate local planning as consequence-aware selection rather than single-trajectory regression. At time $t$, the policy receives $O_t=\{o_{t-P},\ldots,o_t\}$ and a goal image $o_g$. It predicts a temporal goal distance and an $H$-step local trajectory whose waypoint is $a_i=(\Delta x_i,\Delta y_i,\cos\theta_i,\sin\theta_i)$. Observation and goal encoders form tokens that a Transformer fuses into $h_t$. A candidate head then predicts
+We formulate local planning as selection among predicted consequences. At time $t$, the policy receives $O_t=\{o_{t-P},\ldots,o_t\}$ and a goal image $o_g$. Observation and goal encoders form tokens that a Transformer fuses into $h_t$. A candidate head predicts
 \begin{equation}
 \{\hat A_t^1,\ldots,\hat A_t^K\}=f_{\mathrm{cand}}(h_t),
 \end{equation}
-where each candidate contains $H$ waypoints. Figure~\ref{fig:architecture} separates the deployed path from training-only supervision.
+where each candidate contains $H$ waypoints. Each waypoint is $a_i=(\Delta x_i,\Delta y_i,\cos\theta_i,\sin\theta_i)$. EfficientNet-B0 encodes the six observations and the current--goal image pair. Type embeddings distinguish history, current-observation, and goal tokens, while sinusoidal positional encoding preserves their order before four Transformer encoder layers. Their final observation and goal tokens define $z_t$ and $z_g$, while mean token $h_t$ drives the candidate and temporal-distance heads. The proposal head combines $h_t$ with learned hypothesis identities, predicts bounded position increments and normalized headings, and accumulates the increments into local-frame waypoints. Figure~\ref{fig:architecture} separates deployment from training-only supervision.
 
 
 \subsection{Propose, Imagine, and Select}
 
-LCP-Nav separates trajectory proposal from imagined-endpoint selection. For candidate $k$, the trajectory error combines mean Smooth-L1 position error and orientation cosine distance, $e_k=e_k^{\mathrm{pos}}+\lambda_\theta e_k^\theta$. Rather than hard best-of-$K$ assignment, candidate regression and ranking use soft targets
+For candidate $k$, the trajectory error combines Smooth-L1 position error and orientation cosine distance, $e_k=e_k^{\mathrm{pos}}+\lambda_\theta e_k^\theta$. Candidate regression and ranking use soft targets
 \begin{equation}
 w_k=\frac{e^{-e_k/\tau_a}}{\sum_j e^{-e_j/\tau_a}},\qquad
 q_k=\frac{e^{-e_k/\tau_s}}{\sum_j e^{-e_j/\tau_s}},
@@ -72,15 +89,17 @@ with $L_{\mathrm{reg}}=\sum_k w_ke_k$ and $L_{\mathrm{score}}=-\sum_kq_k\log\ope
 \begin{equation}
 L_{\mathrm{cand}}=L_{\mathrm{reg}}+L_{\mathrm{score}}+0.1L_{\mathrm{smooth}}+0.05L_{\mathrm{step}}+0.02L_{\mathrm{div}}.
 \end{equation}
-The smoothness and step terms suppress locally erratic motion, while $L_{\mathrm{div}}$ prevents all candidate endpoints from collapsing to the same location. We use $\lambda_\theta=1$, $\tau_a=\tau_s=1$, and a maximum single-step length of 1.5. The finite proposal has fixed cost and does not assume that the environment contains exactly $K$ action modes.
+The smoothness and step terms suppress erratic motion, while $L_{\mathrm{div}}$ separates candidate endpoints. Soft assignment avoids abrupt changes in the winning candidate and gives the scorer a ranking target consistent with trajectory quality.
+
+Regression distributes supervision by candidate quality instead of updating only a hard winner, and the score loss learns the same ordering. The diversity margin acts on final positions, preserving alternative endpoints without forcing every intermediate waypoint to differ. All candidates are produced in one forward pass.
 
 The shared transition predicts $\hat z_{t+1}=F_{\mathrm{dyn}}(z_t,a_t)$ and recursively rolls out each candidate,
 \begin{equation}
 \hat z_{t+h}^{k}=F_{\mathrm{dyn}}(\hat z_{t+h-1}^{k},\hat a_{t+h-1}^{k}).
 \end{equation}
-The scorer uses current, goal, endpoint, goal--endpoint difference, and encoded trajectory features to compute $s_k$; deployment selects $k^*=\arg\max_k s_k$. Thus, the model evaluates a predicted consequence rather than only regressing one trajectory from $h_t$.
+The scorer receives $[z_t,z_g,\hat z_{t+H}^{k},z_g-\hat z_{t+H}^{k},\phi_A(\hat A^k)]$, where $\phi_A$ is a trajectory encoder, and deployment selects $k^*=\arg\max_k s_k$. The goal--endpoint difference makes terminal compatibility directly available to the selector. All candidates share transition parameters, so their consequences are compared in one representation space.
 
-The scorer receives $[z_t,z_g,\hat z_{t+H}^{k},z_g-\hat z_{t+H}^{k},\phi_A(\hat A^k)]$, where $\phi_A$ is a two-layer trajectory encoder. Candidate error provides the soft ranking target, avoiding geometric maps or endpoint-distance annotations. All candidates share transition parameters across rollout steps. Thus, increasing $K$ changes only the number of parallel rollouts, not the sensing interface.
+$F_{\mathrm{dyn}}$ is a residual multilayer perceptron with LayerNorm. Recursive application evaluates each complete proposal with one transition shared across time and candidates. The scorer combines geometric information from $\phi_A$ with the visual relation between the imagined endpoint and goal.
 
 \subsection{Predictive Training and Non-Collapse Regularization}
 
@@ -95,13 +114,11 @@ L_{\mathrm{sig}}=\frac{1}{MW}\sum_{m,l}\omega_l\big[&\big(\mathbb{E}\cos(u_l Z^\
 &+\big(\mathbb{E}\sin(u_l Z^\top r_m)\big)^2\big].
 \end{aligned}
 \end{equation}
-The expectation averages batch and temporal tokens. The complete objective is
+The expectation averages batch and temporal tokens. Matching projected characteristic functions prevents a low prediction loss from being obtained with a near-constant representation. The complete training objective is
 \begin{equation}
-L=L_{\mathrm{dist}}+L_{\mathrm{cand}}+\lambda_{\mathrm{dyn}}L_{\mathrm{dyn}}+\lambda_{\mathrm{sig}}L_{\mathrm{sig}}.
+L=\bar L_{\mathrm{dist}}+\bar L_{\mathrm{cand}}+\gamma(e)\bar L_{\mathrm{dyn}}+\lambda_{\mathrm{sig}}L_{\mathrm{sig}},
 \end{equation}
-The reported model uses $P=5$, $H=5$, $K=3$, 512-dimensional visual features, four Transformer layers, and $\lambda_{\mathrm{sig}}=0.12$. All online inputs are RGB images at $96\times96$; future images are absent at inference.
-
-The supervised future-frame horizon is $H_f=3$, whereas deployment rolls each candidate through all $H=5$ action steps. The final two transitions are therefore short-horizon extrapolations. A validity mask removes unavailable future targets. SIGReg uses 1024 unit projections and 17 characteristic-function knots in $[0,3]$ without hard whitening. Training uses real future observations, but deployment requires only the observation history, goal image, and candidate actions.
+where bars denote division by an exponential moving average of the corresponding loss magnitude and $\gamma(e)$ warms the dynamics term by epoch. $L_{\mathrm{dist}}$ is Smooth-L1 error on temporal goal distance. Training uses future observations only as latent targets; deployment requires the observation history, goal image, and candidate actions.
 
 \begin{figure*}[t]
 \centering
@@ -112,21 +129,15 @@ The supervised future-frame horizon is $H_f=3$, whereas deployment rolls each ca
 
 \section{Experiments}
 
-\subsection{Protocols}
+\subsection{Experimental Setup}
 
-\textbf{Offline evaluation.} Full LCP-Nav, a matched predictive-pathway ablation, and ViNT were trained independently with seeds 34, 38, 42, 43, and 44 on Go Stanford. The ablation preserves the inputs, backbone, action interface, data, and training budget. It removes imagined endpoints, action-conditioned rollout, and dynamics supervision. Validation action loss selects each checkpoint, which is then tested on fixed Go Stanford, ReCon, and SCAND samples. ReCon and SCAND use no fine-tuning or target-domain selection. Each complete seed-specific training run is one replicate ($n=5$).
+\textbf{Offline evaluation.} LCP-Nav, a matched predictive-pathway ablation, and ViNT are trained independently with five seeds on Go Stanford. The ablation retains the inputs, backbone, action interface, data, and optimization budget but removes imagined endpoints, action-conditioned rollout, and dynamics supervision. Validation-selected checkpoints are evaluated on fixed Go Stanford, ReCon, and SCAND samples; ReCon and SCAND receive no fine-tuning or target-domain reselection. Each complete training run is one replicate ($n=5$), and seed-level results define the uncertainty in Fig.~\ref{fig:offline}.
 
-All models use the runtime image size of $96\times96$, a six-frame observation sequence, and a five-waypoint action horizon. The visual encoder has dimension 512, the Transformer has four attention layers, and AdamW uses a learning rate of $8\times10^{-4}$. Data, optimization budget, validation protocol, and test samples are matched across the five-seed comparison. The evaluation manifest fixes sample indices, current and goal frames, negative-goal flags, and sampling seeds before paper-test reporting.
+All models use $96\times96$ RGB inputs, six observation frames, five predicted waypoints, 512-dimensional visual features, and four Transformer encoder layers. LCP-Nav uses $K=3$, $\lambda_\theta=1$, $\tau_a=\tau_s=1$, $\lambda_{\mathrm{sig}}=0.12$, a three-step supervised dynamics horizon, 1024 SIGReg projections, and 17 characteristic-function knots. The dynamics weight is zero for the first five epochs, increases linearly to one over epochs 5--10, and remains one thereafter. AdamW trains for 15 epochs with batch size 128, an initial learning rate of $8\times10^{-4}$, and cosine scheduling. Data, test samples, and optimization budgets are matched. Offline action loss averages waypoint Smooth-L1 and orientation cosine losses.
 
-We predefine two checkpoint roles to prevent post hoc selection. LCP-Nav-action and ViNT are selected by validation action loss and used for all offline action comparisons. LCP-Nav-LFP is selected only by validation latent-prediction loss and is used for rollout diagnostics and closed-loop deployment. Paper-test, ReCon, SCAND, and Gazebo outcomes do not influence either selection rule. This separation avoids reporting the best checkpoint from multiple metrics after observing test performance.
+Validation action loss selects LCP-Nav-action and ViNT for action comparisons. Validation latent-prediction loss selects LCP-Nav-LFP for rollout analysis and Gazebo deployment. Test-set and Gazebo results are not used in checkpoint selection.
 
-Offline action loss averages Smooth-L1 waypoint-position error and orientation cosine distance over the five predicted waypoints. We additionally inspect waypoint cosine and orientation cosine to distinguish translation from heading quality. Cross-domain evaluation is checkpoint-only: every seed uses the Go Stanford validation-selected checkpoint without target-domain adaptation or reselection. Seed-level points, rather than frame-level samples, define uncertainty in Fig.~\ref{fig:offline}.
-
-\textbf{Closed-loop evaluation.} Gazebo experiments use fixed indoor-obstacle, forest-road, and campus-road routes as controlled stress tests for constrained passage, appearance variation, and long-horizon terminal drift. Each method completes five runs per route, for 30 runs in total. Scene, route, poses, camera, chassis, controller, and topological procedure are held fixed. A validated arrival requires software-reported arrival, endpoint error no greater than 5~m, and no collision or timeout. LCP-Nav uses a validation latent-prediction checkpoint, whereas ViNT uses a validation action-loss checkpoint. The comparison therefore evaluates two predeclared deployment strategies rather than architecture alone.
-
-Endpoint error is the Euclidean distance from the final robot position to the demonstration endpoint. Topological progress is the largest reached node index divided by the target-node index. Each replicate is a complete deployment of the same checkpoint. Closed-loop outcomes are never used for checkpoint selection.
-
-During deployment, LCP-Nav generates three local trajectories in one forward pass, rolls each through the shared dynamics model, and executes the highest-scoring candidate. ViNT executes its direct trajectory output. Both policies use the same camera stream, chassis limits, control frequency, topological graph, and arrival detector. The five repetitions per scene begin from matched poses and headings. Runs terminate only through reported arrival, collision, timeout, or the fixed route procedure, so failed trajectories are not truncated for analysis.
+\textbf{Closed-loop evaluation.} Gazebo experiments use fixed indoor-obstacle, forest-road, and campus-road routes to test constrained passage, appearance variation, and long-horizon drift. Each method completes five runs per route. Camera, chassis, controller, topological graph, starting poses, and arrival detector are held fixed. A validated arrival requires software-reported arrival, endpoint error no greater than 5~m, and no collision or timeout. Endpoint error is the Euclidean distance to the demonstration endpoint; topological progress is the largest reached node index divided by the target-node index. Each replicate is a complete run, including collisions and timeouts.
 
 
 \begin{figure*}[t]
@@ -134,29 +145,26 @@ During deployment, LCP-Nav generates three local trajectories in one forward pas
 \includegraphics[width=0.96\textwidth]{fig3_overhead_scene_context.pdf}
 \vspace{0.35em}
 \includegraphics[width=0.96\textwidth,trim=0 0 0 175bp,clip]{fig3_closed_loop_simulation.pdf}
-\caption{Scenario-driven closed-loop Gazebo evaluation. The routes stress constrained passage, appearance variation, and terminal drift. Top: calibrated overhead views; the dashed yellow line is the demonstration route, blue and orange are retained LCP-Nav and ViNT trajectories, circles mark starts, stars mark demonstration endpoints, and burst symbols mark failure stops. Bottom: validated arrivals and endpoint error for all five runs per method and scene (diamonds denote means; endpoint error uses a log scale; dashed lines mark 1 and 5~m).}
+\caption{Scenario-driven closed-loop Gazebo evaluation. The routes stress constrained passage, appearance variation, and terminal drift. Top: (a) indoor-obstacle, (b) forest-road, and (c) campus-road overhead views; the dashed yellow line is the demonstration route, blue and orange are retained LCP-Nav and ViNT trajectories, circles mark starts, stars mark demonstration endpoints, and burst symbols mark failure stops. Bottom: validated arrivals and endpoint error for all five runs per method and scene (diamonds denote means; endpoint error uses a log scale; dashed lines mark 1 and 5~m).}
 \label{fig:simulation}
 \end{figure*}
 
-\subsection{Does Consequence Prediction Improve Transfer?}
+\subsection{Cross-Domain Transfer and Mechanism Analysis}
 
-To test whether the predictive pathway improves transfer under matched training, Fig.~\ref{fig:offline} reports all five seed-level action losses. LCP-Nav reduces mean loss relative to the matched ablation from 0.4599 to 0.4510 on Go Stanford, 0.3416 to 0.3226 on ReCon, and 0.2579 to 0.2363 on SCAND. The corresponding reductions are 1.9\%, 5.6\%, and 8.3\%. ViNT remains stronger in-domain (0.3771), but LCP-Nav is lower on ReCon (0.3226 versus 0.3399) and SCAND (0.2363 versus 0.3319). All five SCAND seeds improve over ViNT, with a paired mean difference of $-0.0955$ and a 95\% exhaustive-bootstrap interval of $[-0.1228,-0.0698]$. The increasing gain over the matched ablation links transfer improvement more directly to the predictive pathway.
+The predictive pathway provides its clearest benefit after domain shift. Relative to the matched ablation, LCP-Nav reduces mean action loss by 1.9\% on Go Stanford, 5.6\% on ReCon, and 8.3\% on SCAND (Fig.~\ref{fig:offline}). ViNT remains stronger on the Go Stanford test set (0.3771 versus 0.4510), whereas LCP-Nav is lower on ReCon (0.3226 versus 0.3399) and SCAND (0.2363 versus 0.3319). Every SCAND seed improves over ViNT; the paired mean difference is $-0.0955$, with a 95\% exhaustive-bootstrap interval of $[-0.1228,-0.0698]$. The widening full-model gain over the matched ablation indicates that latent consequence prediction contributes most when appearance and motion statistics depart from the training domain.
 
-Cross-domain values were also audited in physical units. Go Stanford, ReCon, and SCAND use waypoint spacings of 0.12, 0.25, and 0.38~m, respectively. Recomputing translation and orientation metrics with these scales preserves the reported transfer pattern, so the gain is not produced by one normalization convention. Split audits found no trajectory intersections between training and test sets in any domain and no overlap between Go Stanford validation and test trajectories.
-
-
-We next test whether the learned pathway performs the intended decision role. At $\lambda_{\mathrm{sig}}=0.12$, $K=3$ yields lower action loss (0.3919) than $K=1$ (0.4318) or $K=5$ (0.4685). Without SIGReg, the best latent-prediction loss falls to 0.0023, but effective rank collapses to 1.02 and the first eigenvalue explains 99.7\% of variance. Cyclically permuting only the imagined endpoint reduces candidate-selection agreement by about 43\% across all datasets. The scorer therefore uses endpoint features rather than treating them as redundant inputs. These single-run diagnostics explain the selected design but do not carry the main statistical claim.
-
-Multi-seed rollouts test whether the transition remains useful recursively. For action-selected checkpoints, one-, two-, and three-step latent MSEs are 1.653, 2.318, and 2.732. The matched ablation gives 3.743, 4.195, and 4.604, corresponding to reductions of 55.8\%, 44.7\%, and 40.7\%. Predictive checkpoints retain third-step cosine consistency of $0.9024\pm0.0387$, whereas the ablation falls to $0.5098\pm0.0529$. In the paired intervention, candidate trajectories and current/goal latents remain fixed while endpoint features are permuted. Agreement decreases by 43.6\%, 42.7\%, and 43.2\% on Go Stanford, ReCon, and SCAND. These tests connect latent prediction to the deployed decision chain.
-
-\subsection{Does Route Progress Translate into Arrival?}
-
-To test whether the predictive pathway changes endpoint reliability, Fig.~\ref{fig:simulation} combines spatial context with repeated-run evidence. The overhead panels retain scene geometry, the demonstration route, and one raw trajectory from each method. The lower panels report all five runs per method and scene.
+Go Stanford, ReCon, and SCAND use waypoint spacings of 0.12, 0.25, and 0.38~m. Component metrics in physical units reveal how the aggregate gain changes by domain. On ReCon, LCP-Nav reduces translation RMSE from 0.333 to 0.325~m, while ViNT has lower angle error (0.264 versus 0.290~rad). On SCAND, LCP-Nav has slightly higher translation RMSE (0.555 versus 0.546~m) but lowers angle error from 0.162 to 0.122~rad. The action-loss improvement is therefore not a uniform reduction of every component; it reflects a different balance between translation and heading under shift. Split audits find no trajectory intersections between training and test sets and no overlap between Go Stanford validation and test trajectories.
 
 
-The overhead panels locate obstacle-passage failures indoors, route deviation in the forest, and terminal-position error on campus. They provide qualitative context, while the lower panels summarize every recorded run.
+Mechanism tests explain this pattern. At $\lambda_{\mathrm{sig}}=0.12$, three candidates produce lower action loss (0.3919) than one (0.4318) or five (0.4685). Removing SIGReg lowers latent-prediction loss to 0.0023 but collapses the effective rank to 1.02, with 99.7\% of variance in the first eigenvalue. Low prediction error is therefore uninformative when distinct observations map to nearly the same latent state. Conversely, cyclically permuting only the imagined endpoints changes approximately 43\% of candidate selections across all three datasets, showing that the scorer actively uses the endpoint representation.
 
-The lower panels report the primary deployment outcomes. LCP-Nav obtains 5/5, 4/5, and 2/5 validated arrivals indoors, in the forest, and on campus; ViNT obtains 0/5 throughout. Totals are 11/15 (73.3\%) and 0/15. Mean endpoint errors are 1.036, 5.299, and 5.697~m for LCP-Nav, compared with 11.563, 24.914, and 20.404~m for ViNT. On campus, ViNT reaches 100\% mean node progress but remains about 20~m from the endpoint. Thus, topological progress alone does not establish arrival.
+The transition also retains useful structure under recursive rollout. One-, two-, and three-step latent MSEs are 1.653, 2.318, and 2.732, compared with 3.743, 4.195, and 4.604 for the matched ablation. At the third step, cosine consistency remains $0.9024\pm0.0387$ for the predictive checkpoints but falls to $0.5098\pm0.0529$ for the ablation. The joint evidence from rank, rollout, and endpoint intervention identifies a functional chain: SIGReg preserves state distinctions, the dynamics propagate them under candidate actions, and the scorer uses the resulting endpoints.
+
+The candidate sweep clarifies the selected $K$. One candidate leaves the endpoint scorer no alternative, whereas five distribute supervision across more hypotheses and raise action loss. Three candidates provide endpoint variation while keeping each proposal well supervised.
+
+\subsection{Closed-Loop Arrival and Efficiency}
+
+LCP-Nav converts the transfer gain into more reliable closed-loop termination. It records 5/5, 4/5, and 2/5 validated arrivals on the indoor, forest, and campus routes, respectively, compared with 0/5 for ViNT in every scene (Fig.~\ref{fig:simulation} and Table~\ref{tab:closedloop}). Its mean endpoint errors are 1.04, 5.30, and 5.70~m, versus 11.56, 24.91, and 20.40~m for ViNT. The overhead views locate the corresponding failures: ViNT stops around the constrained indoor passage, deviates earlier on the forest route, and reaches the final campus node without terminating near the endpoint.
 
 \begin{table}[t]
 \centering
@@ -179,22 +187,25 @@ Campus & LCP-Nav & 2/5 & $5.70\pm5.24$ & $83.8\pm17.5$ \\
 \end{table}
 
 
-Scene-wise variation clarifies the aggregate count. Indoors, LCP-Nav succeeds in every run with only $0.10$~m standard deviation in endpoint error. ViNT reaches $48.2\%\pm27.3\%$ mean progress and stops far from the endpoint. In the forest, one failure raises LCP-Nav error to $5.30\pm7.93$~m despite four arrivals. On campus, LCP-Nav reaches $83.8\%\pm17.5\%$ progress but validates only two arrivals, revealing residual long-horizon drift. ViNT records full node progress yet finishes at $20.40\pm1.42$~m error. The composite criterion therefore distinguishes route traversal from accurate termination.
+The scene-wise results separate route traversal from endpoint accuracy. Indoors, LCP-Nav succeeds consistently in the constrained passage. Appearance variation produces one large-error forest run, while the longer campus route retains two high-error terminations. ViNT illustrates the metric mismatch most clearly on campus: it reaches 100\% mean topological progress yet finishes $20.40\pm1.42$~m from the endpoint. Under a stricter 1-m threshold, 6/15 LCP-Nav runs and 0/15 ViNT runs remain valid arrivals, preserving the method ordering.
 
-A stricter 1-m endpoint threshold, combined with software-reported arrival and no collision or timeout, accepts 6/15 LCP-Nav runs and 0/15 ViNT runs. This sensitivity check shows that the 5-m result is not solely an artifact of a permissive radius. Complete runs remain the experimental unit, and failures remain in the endpoint-error distribution in Fig.~\ref{fig:simulation}.
+The overhead trajectories distinguish two failure patterns. Indoor and forest ViNT runs deviate or stop early, whereas the campus baseline follows the node sequence but accumulates physical displacement from the endpoint. LCP-Nav passes the indoor bottleneck in every run and terminates most forest and campus runs inside the 5-m criterion; its remaining high-error runs occur on the two longer routes.
 
 
-Policy-only efficiency was measured after 100 warm-up iterations and over 500 repetitions using inputs $\mathrm{obs}=[1,6,3,96,96]$ and $\mathrm{goal}=[1,3,96,96]$. LCP-Nav contains 26.77~M parameters, 9.8\% fewer than ViNT at 29.66~M, and requires approximately 1.164~GFLOPs. On an RTX~4090 with float32 inputs, p95 latency is 24.3--24.8~ms, compared with 22.6~ms for ViNT. Peak allocated memory is 129.6--131.3~MiB, below the ViNT value of 142.7~MiB. Finite latent rollouts therefore preserve policy inference above 40~Hz with a small measured latency increment.
+Policy-only profiling uses 100 warm-up iterations followed by 500 timed repetitions. LCP-Nav contains 26.77~M parameters, 9.8\% fewer than ViNT, and requires approximately 1.164~GFLOPs. On an RTX~4090 with float32 inputs, its p95 latency is 24.3--24.8~ms, compared with 22.6~ms for ViNT; peak allocated memory is 129.6--131.3~MiB, compared with 142.7~MiB. The three latent rollouts therefore add 1.7--2.2~ms while retaining inference above 40~Hz.
 
+\enlargethispage{-1.25in}
 \section{Discussion}
 
-The central finding is that route progress and terminal arrival are not interchangeable in the evaluated campus-like routes. ViNT's full mean campus progress but large endpoint error exposes this gap. LCP-Nav addresses it by separating trajectory proposal from consequence-aware selection. Transfer, rollout, endpoint-intervention, and closed-loop results support this role at real-time speed.
+The experiments show that trajectory generation and trajectory selection solve different parts of visual navigation. Direct regression produces a locally plausible action, but it offers no basis for choosing among actions that lead to different terminal states. LCP-Nav makes that choice explicit. The matched ablation attributes the growing cross-domain gain to the predictive pathway, while the endpoint intervention confirms that the selector changes its decision when the imagined consequence changes. Candidate diversity alone is not sufficient: without a non-collapsed latent state, low prediction error carries little information for ranking.
 
-The three routes approximate constrained passage, vegetation-rich appearance variation, and terminal drift between campus buildings, green paths, and roads, but do not constitute physical-campus validation or a safety system. Different checkpoint objectives make the closed-loop comparison one between predeclared deployment strategies; five repetitions estimate fixed-route stability only; and validated arrival is not a formal safety guarantee. Physical tests should use matched checkpoints, additional routes, illumination changes, pedestrians, and dynamic obstacles while retaining endpoint error and failure cause.
+ViNT fits Go Stanford actions more accurately, whereas LCP-Nav reverses the ordering on ReCon and SCAND despite using the same source data. Together with the matched ablation, this pattern shows that the predictive pathway contributes beyond model capacity. The component metrics show a domain-specific trade-off rather than uniform smoothing: translation and heading change differently across the two target domains.
+
+Closed-loop behavior makes the distinction visible. Indoor results show that endpoint scoring can select stable motion through a constrained passage, and forest results preserve the advantage under appearance variation. The campus route is more demanding: LCP-Nav sharply reduces endpoint error but still records several inaccurate terminations as errors accumulate over the longer route. ViNT reaches every campus node yet stops far from the destination, demonstrating why topological progress must be paired with endpoint error and validated arrival. LCP-Nav achieves this improvement with a small latency increase, so consequence-based selection remains compatible with real-time control.
 
 \section{Conclusion}
 
-LCP-Nav makes goal-conditioned navigation endpoint-aware by combining finite proposals, latent rollout, imagined-endpoint selection, and non-collapse regularization. Five-seed tests and repeated Gazebo runs support improved transfer and endpoint reliability within a real-time budget. The evidence remains bounded to the present datasets and fixed simulations, motivating matched-checkpoint tests on physical campus routes.
+LCP-Nav addresses endpoint drift in visual navigation by comparing the predicted latent consequences of a finite set of local trajectories before execution. On ReCon and SCAND, it achieves lower action loss than ViNT; across three closed-loop Gazebo routes, it reduces endpoint error and increases validated arrivals while sustaining inference above 40~Hz. These results show that endpoint-based consequence comparison can improve action selection without sacrificing real-time control.
 
 \begin{thebibliography}{00}
 \bibitem{ving} D. Shah, B. Eysenbach, G. Kahn, N. Rhinehart, and S. Levine, ``ViNG: Learning open-world navigation with visual goals,'' in \emph{Proc. IEEE Int. Conf. Robot. Autom.}, 2021.
